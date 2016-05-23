@@ -13,9 +13,6 @@ static void mattermost_init(account_t * acc)
 
 	s = set_add(&acc->set, "url", NULL, NULL, acc);
 	s->flags |= ACC_SET_OFFLINE_ONLY;
-
-	s = set_add(&acc->set, "token", NULL, NULL, acc);
-	s->flags |= ACC_SET_OFFLINE_ONLY;
 }
 
 static void mattermost_login(account_t * acc)
@@ -25,7 +22,8 @@ static void mattermost_login(account_t * acc)
 	const char *conf_url = set_getstr(&ic->acc->set, "url");
 	struct mattermost_data *mmd;
 
-	if (set_getstr(&ic->acc->set, "token") == NULL) {
+	if (ic->acc->pass == NULL ||
+	    strcmp(PASSWORD_PENDING, ic->acc->pass) == 0) {
 		imcb_error(ic, "No authentication token set!");
 		imc_logout(ic, FALSE);
 		return;
@@ -50,7 +48,6 @@ static void mattermost_login(account_t * acc)
 	mmd->api_url = g_strdup_printf("http%s://%s/api/v3/",
 				       mmd->tls ? "s" : "", mmd->host);
 	mmd->team = g_strdup(url.file + 1);
-	mmd->auth_token = set_getstr(&ic->acc->set, "token");
 
 	mattermost_find_self(ic);
 	mattermost_find_team(ic);

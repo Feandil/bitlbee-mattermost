@@ -29,7 +29,7 @@ mattermost_http(struct im_connection *ic, struct groupchat *c, const char *url,
 			chand ? chand->path : "",
 			url ? url : "",
 			mmd->host,
-			mmd->auth_token);
+			ic->acc->pass);
 
 	// Add the etag if needed
 	if (etag != NULL)
