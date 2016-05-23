@@ -11,6 +11,7 @@ struct mattermost_data {
 	char *auth_token;
 	char *team;
 	char *team_id;
+	char *team_url;
 	char *self_id;
 };
 

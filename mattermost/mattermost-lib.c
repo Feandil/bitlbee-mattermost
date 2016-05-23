@@ -203,6 +203,7 @@ mattermost_find_team_cb(struct http_request *req)
 		return;
 	}
 
+	mmd->team_url = g_strdup_printf("%steams/%s/", mmd->api_url, mmd->team_id);
 	if (mmd->self_id != NULL)
 		mattermost_update_channels(ic);
 }
