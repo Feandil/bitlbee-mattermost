@@ -80,6 +80,7 @@ void init_plugin()
 	ret->name = "mattermost";
 	ret->init = mattermost_init;
 	ret->login = mattermost_login;
+	ret->logout = mattermost_logout;
 	ret->keepalive = NULL; /* We don't need it */
 
 	ret->handle_cmp = g_strcasecmp;
