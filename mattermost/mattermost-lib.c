@@ -16,6 +16,8 @@ mattermost_json_o_ck(const char * target, char ** target_store,
 		return 0;
 	if (!value || value->type != json_string)
 		return 0;
+	if (value->u.string.length == 0)
+		return 0;
 	*target_store = g_memdup(value->u.string.ptr,
 				 value->u.string.length + 1);
 	return 1;
