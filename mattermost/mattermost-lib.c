@@ -134,7 +134,7 @@ mattermost_find_self_cb(struct http_request *req)
 	mattermost_free_user(ud);
 
 	if (mmd->team_id != NULL)
-		mattermost_update_channels(ic);
+		mattermost_find_users(ic);
 }
 
 
@@ -205,5 +205,96 @@ mattermost_find_team_cb(struct http_request *req)
 
 	mmd->team_url = g_strdup_printf("%steams/%s/", mmd->api_url, mmd->team_id);
 	if (mmd->self_id != NULL)
-		mattermost_update_channels(ic);
+		mattermost_find_users(ic);
+}
+
+static bee_user_t *
+user_by_id(struct im_connection *ic, const char *handle)
+{
+	GSList *l;
+	bee_t *bee = ic->bee;
+
+	for (l = bee->users; l; l = l->next) {
+		bee_user_t *bu = l->data;
+
+		if (bu->ic == ic && ic->acc->prpl->handle_cmp(bu->handle, handle) == 0)
+			return bu;
+	}
+
+	return NULL;
+}
+
+static void
+mattermost_add_user(const struct mattermost_user_data * ud,
+		    struct im_connection *ic)
+{
+	char user_alias[BUDDY_ALIAS_MAXLEN];
+	struct mattermost_data *mmd = ic->proto_data;
+
+	if (ic->acc->prpl->handle_cmp(ud->id, mmd->self_id) == 0)
+		return;
+
+	if (!bee_user_by_handle(ic->bee, ic, ud->id)) {
+		mattermost_user_alias(ud, user_alias);
+		imcb_add_buddy(ic, ud->id, NULL);
+		imcb_rename_buddy(ic, ud->id, user_alias);
+		imcb_buddy_nick_hint(ic, ud->id, ud->username);
+	}
+}
+
+static void mattermost_find_users_cb(struct http_request *req);
+
+void
+mattermost_find_users(struct im_connection *ic)
+{
+	struct mattermost_data *mmd;
+	char *url;
+
+	/* Check if we didn't logout in the mean time */
+	if (!g_slist_find(mattermost_connections, ic))
+		return;
+	mmd = ic->proto_data;
+
+	url = g_strdup_printf("users/profiles/%s", mmd->team_id);
+	mattermost_http(ic, NULL, url, FALSE, NULL, NULL,
+			&mattermost_find_users_cb, ic);
+	g_free(url);
+}
+
+static void
+mattermost_find_users_cb(struct http_request *req)
+{
+	struct im_connection *ic = req->data;
+	struct mattermost_data *mmd;
+	json_value * data;
+	int i, ret;
+
+	/* Check if we didn't logout in the mean time */
+	if (!g_slist_find(mattermost_connections, ic))
+		return;
+	mmd = ic->proto_data;
+
+	ret = mattermost_parse_response(ic, req, &data);
+	/* No etag set: no 304 */
+	if (ret != 200) {
+		imcb_error(ic, "Early failure: could not get users: %d", ret);
+		imc_logout(ic, FALSE);
+		return;
+	}
+
+	if (!data || data->type != json_object) {
+		json_value_free(data);
+		imcb_error(ic, "Early failure: invalid users json");
+		imc_logout(ic, FALSE);
+		return;
+	}
+	for (i = 0; i < data->u.object.length; ++i) {
+		struct mattermost_user_data * ud;
+
+		ud = mattermost_parse_user(data->u.object.values[i].value);
+		if (ud != NULL)
+			mattermost_add_user(ud, ic);
+		mattermost_free_user(ud);
+	}
+	mattermost_join_channels(ic);
 }
