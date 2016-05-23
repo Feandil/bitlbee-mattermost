@@ -61,6 +61,9 @@ static void mattermost_logout(struct im_connection *ic)
 	ic->flags &= ~OPT_LOGGED_IN;
 
 	if (mmd) {
+		g_free(mmd->self_id);
+		g_free(mmd->team_url);
+		g_free(mmd->team_id);
 		g_free(mmd->team);
 		g_free(mmd->api_url);
 		g_free(mmd->host);
