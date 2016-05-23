@@ -113,6 +113,7 @@ mattermost_find_self_cb(struct http_request *req)
 	/* Check if we didn't logout in the mean time */
 	if (!g_slist_find(mattermost_connections, ic))
 		return;
+	mmd = ic->proto_data;
 
 	ret = mattermost_parse_response(ic, req, &data);
 	/* No etag set: no 304 */
@@ -130,7 +131,6 @@ mattermost_find_self_cb(struct http_request *req)
 		return;
 	}
 
-	mmd = ic->proto_data;
 	mmd->self_id = g_strdup(ud->id);
 	mattermost_user_alias(ud, self_alias);
 	imcb_log(ic, "Hi, %s", self_alias);
@@ -161,6 +161,8 @@ mattermost_find_team_cb(struct http_request *req)
 	/* Check if we didn't logout in the mean time */
 	if (!g_slist_find(mattermost_connections, ic))
 		return;
+	mmd = ic->proto_data;
+
 	ret = mattermost_parse_response(ic, req, &data);
 	/* No etag set: no 304 */
 	if (ret != 200) {
