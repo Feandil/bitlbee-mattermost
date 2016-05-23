@@ -50,21 +50,23 @@ mattermost_parse_user(json_value * data)
 	ud = g_new0(struct mattermost_user_data, 1);
 
 	for (i = 0; i < data->u.object.length; ++i) {
-		 if (mattermost_json_o_ck("username", &ud->username,
-					  data, i));
-			break;
-		 if (mattermost_json_o_ck("first_name", &ud->firstname,
-					  data, i));
-			break;
-		 if (mattermost_json_o_ck("last_name", &ud->lastname,
-					  data, i));
-			break;
-		 if (mattermost_json_o_ck("id", &ud->id,
-					  data, i));
-			break;
-		 if (mattermost_json_o_ck("nickname", &ud->nickname,
-					  data, i));
-			break;
+		do {
+			if (mattermost_json_o_ck("username", &ud->username,
+						 data, i, ic))
+				break;
+			if (mattermost_json_o_ck("first_name", &ud->firstname,
+						 data, i, ic))
+				break;
+			if (mattermost_json_o_ck("last_name", &ud->lastname,
+						 data, i, ic))
+				break;
+			if (mattermost_json_o_ck("id", &ud->id,
+						 data, i, ic))
+				break;
+			if (mattermost_json_o_ck("nickname", &ud->nickname,
+						 data, i, ic))
+				break;
+		} while (0);
 	}
 
 	if ((ud->username == NULL) || (ud->id == NULL)) {
