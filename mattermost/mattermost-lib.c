@@ -7,19 +7,16 @@
 
 static int
 mattermost_json_o_ck(const char * target, char ** target_store,
-		     json_value * obj, int offset)
+		     json_object_entry * obj)
 {
-        char * name = obj->u.object.values[offset].name;
-	json_value * value = obj->u.object.values[offset].value;
-
-	if (strcmp(target, name) != 0)
+	if (strcmp(target, obj->name) != 0)
 		return 0;
-	if (!value || value->type != json_string)
+	if (!obj->value || obj->value->type != json_string)
 		return 0;
-	if (value->u.string.length == 0)
+	if (obj->value->u.string.length == 0)
 		return 0;
-	*target_store = g_memdup(value->u.string.ptr,
-				 value->u.string.length + 1);
+	*target_store = g_memdup(obj->value->u.string.ptr,
+				 obj->value->u.string.length + 1);
 	return 1;
 }
 
@@ -52,19 +49,19 @@ mattermost_parse_user(json_value * data)
 	for (i = 0; i < data->u.object.length; ++i) {
 		do {
 			if (mattermost_json_o_ck("username", &ud->username,
-						 data, i))
+						 &data->u.object.values[i]))
 				break;
 			if (mattermost_json_o_ck("first_name", &ud->firstname,
-						 data, i))
+						 &data->u.object.values[i]))
 				break;
 			if (mattermost_json_o_ck("last_name", &ud->lastname,
-						 data, i))
+						 &data->u.object.values[i]))
 				break;
 			if (mattermost_json_o_ck("id", &ud->id,
-						 data, i))
+						 &data->u.object.values[i]))
 				break;
 			if (mattermost_json_o_ck("nickname", &ud->nickname,
-						 data, i))
+						 &data->u.object.values[i]))
 				break;
 		} while (0);
 	}
