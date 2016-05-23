@@ -62,7 +62,26 @@ int
 mattermost_parse_response(struct im_connection *ic, struct http_request *req,
 			  json_value ** value)
 {
-//if (getenv("BITLBEE_DEBUG")) {
-	return 0;
+	json_value * ret;
+
+	if (req->status_code != 200 && req->status_code != 304) {
+		/* Un-handled error */
+		if (getenv("BITLBEE_DEBUG"))
+			imcb_error(ic, "Received error code %d: %.*s",
+				   req->status_code, req->body_size,
+				   req->reply_body);
+		return req->status_code;
+	}
+
+	ret = json_parse(req->reply_body, req->body_size);
+	if (ret == NULL) {
+		imcb_error(ic, "Received error invalid json");
+		if (getenv("BITLBEE_DEBUG"))
+			imcb_error(ic, "Data: %.*s",
+				   req->body_size, req->reply_body);
+		return -1;
+	}
+	*value = ret;
+	return req->status_code;
 }
 
