@@ -52,19 +52,19 @@ mattermost_parse_user(json_value * data)
 	for (i = 0; i < data->u.object.length; ++i) {
 		do {
 			if (mattermost_json_o_ck("username", &ud->username,
-						 data, i, ic))
+						 data, i))
 				break;
 			if (mattermost_json_o_ck("first_name", &ud->firstname,
-						 data, i, ic))
+						 data, i))
 				break;
 			if (mattermost_json_o_ck("last_name", &ud->lastname,
-						 data, i, ic))
+						 data, i))
 				break;
 			if (mattermost_json_o_ck("id", &ud->id,
-						 data, i, ic))
+						 data, i))
 				break;
 			if (mattermost_json_o_ck("nickname", &ud->nickname,
-						 data, i, ic))
+						 data, i))
 				break;
 		} while (0);
 	}
