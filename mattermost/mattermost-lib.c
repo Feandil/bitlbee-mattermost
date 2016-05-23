@@ -41,8 +41,8 @@ mattermost_parse_user(json_value * data)
 	int i;
 
 	if (!data || data->type != json_object) {
-                return NULL;
-        }
+		return NULL;
+	}
 
 	ud = g_new0(struct mattermost_user_data, 1);
 
