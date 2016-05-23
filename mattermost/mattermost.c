@@ -31,7 +31,7 @@ static void mattermost_login(account_t * acc)
 		return;
 	}
 
-	if (!url_set(&url, conf_url) ||
+	if (conf_url == NULL ||!url_set(&url, conf_url) ||
 	    (url.proto != PROTO_HTTP && url.proto != PROTO_HTTPS) ||
 	    strlen(url.file) <= 1) {
 		imcb_error(ic, "Incorrect URL", conf_url);
