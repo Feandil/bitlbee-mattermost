@@ -298,3 +298,115 @@ mattermost_find_users_cb(struct http_request *req)
 	}
 	mattermost_join_channels(ic);
 }
+
+static void mattermost_join_channels_cb(struct http_request *req);
+
+void
+mattermost_join_channels(struct im_connection *ic)
+{
+	struct mattermost_data *mmd;
+	char *url;
+
+	/* Check if we didn't logout in the mean time */
+	if (!g_slist_find(mattermost_connections, ic))
+		return;
+	mmd = ic->proto_data;
+
+	url = g_strdup_printf("teams/%s/channels/", mmd->team_id);
+	mattermost_http(ic, NULL, url, FALSE, NULL, NULL,
+			&mattermost_join_channels_cb, ic);
+	g_free(url);
+}
+
+static void
+mattermost_join_channels_cb(struct http_request *req)
+{
+	struct im_connection *ic = req->data;
+	struct mattermost_data *mmd;
+	json_value *data, *channels = NULL;
+	int i, ret;
+
+	/* Check if we didn't logout in the mean time */
+	if (!g_slist_find(mattermost_connections, ic))
+		return;
+	mmd = ic->proto_data;
+
+	ret = mattermost_parse_response(ic, req, &data);
+	/* No etag set: no 304 */
+	if (ret != 200) {
+		imcb_error(ic, "Early failure: could not get channels: %d", ret);
+		imc_logout(ic, FALSE);
+		return;
+	}
+
+	if (!data || data->type != json_object) {
+		json_value_free(data);
+		imcb_error(ic, "Early failure: invalid channels json");
+		imc_logout(ic, FALSE);
+		return;
+	}
+	for (i = 0; i < data->u.object.length; ++i) {
+		if (strcmp(data->u.object.values[i].name, "channels") == 0) {
+			channels = data->u.object.values[i].value;
+			break;
+		}
+	}
+	if (channels == NULL ||channels->type != json_array) {
+		imcb_error(ic, "Early failure: missing channels");
+		imc_logout(ic, FALSE);
+		return;
+	}
+	for (i = 0; i < channels->u.array.length; ++i) {
+		int ci;
+		json_value *channel = channels->u.array.values[i];
+		char *id, *type, *name, *topic;
+		id = type = name = topic = NULL;
+
+		if (channel->type != json_object) {
+			imcb_error(ic, "wrong type");
+			continue;
+		}
+
+		for (ci = 0; ci < channel->u.object.length; ++ci) {
+			do {
+				if (mattermost_json_o_ck("id", &id,
+				    &channel->u.object.values[ci]))
+					break;
+				if (mattermost_json_o_ck("type", &type,
+				    &channel->u.object.values[ci]))
+					break;
+				if (mattermost_json_o_ck("name", &name,
+				    &channel->u.object.values[ci]))
+					break;
+				if (mattermost_json_o_ck("header", &topic,
+				    &channel->u.object.values[ci]))
+					break;
+			} while (0);
+		}
+		if (id != NULL && type != NULL && name != NULL) {
+			struct groupchat *chat;
+			switch (*type) {
+			case 'D':
+				//TODO: set buddy online
+				break;
+			case 'P':
+			case 'O':
+				imcb_log(ic, "Joining %s", name);
+				chat = imcb_chat_new(ic, id);
+				imcb_chat_name_hint(chat, name);
+				if (topic)
+					imcb_chat_topic(chat, NULL, topic, 0);
+				mattermost_join_channel(chat);
+				break;
+			default:
+				imcb_error(ic, "Unsupported channel: %s",
+					   name);
+				break;
+			}
+		}
+		g_free(id);
+		g_free(type);
+		g_free(name);
+		g_free(topic);
+	}
+}
