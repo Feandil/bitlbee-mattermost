@@ -262,7 +262,6 @@ static void mattermost_join_channel_cb(struct http_request *req);
 void
 mattermost_join_channel(struct groupchat *gic)
 {
-	imcb_chat_log(gic, "Joining....");
 	mattermost_http(gic->ic, gic, "extra_info/-1", FALSE, NULL, NULL,
 			mattermost_join_channel_cb);
 }
@@ -330,6 +329,7 @@ mattermost_join_channel_cb(struct http_request *req)
 		else
 			imcb_error(ic, "Missed one user");
 	}
+	imcb_chat_add_buddy(gic, mmd->self_id);
 	mattermost_sync_channel(gic);
 }
 
