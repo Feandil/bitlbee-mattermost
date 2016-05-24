@@ -77,6 +77,14 @@ static void mattermost_logout(struct im_connection *ic)
 	mattermost_connections = g_slist_remove(mattermost_connections, ic);
 }
 
+static gboolean
+mattermost_handle_is_self(struct im_connection *ic, const char *who)
+{
+	struct mattermost_data *mmd = ic->proto_data;
+
+	return strcmp(who, mmd->self_id) == 0;
+}
+
 void init_plugin()
 {
 	struct prpl *ret = g_new0(struct prpl, 1);
@@ -89,6 +97,6 @@ void init_plugin()
 	ret->keepalive = NULL; /* We don't need it */
 
 	ret->handle_cmp = g_strcasecmp;
-
+	ret->handle_is_self = mattermost_handle_is_self;
 	register_protocol(ret);
 }
