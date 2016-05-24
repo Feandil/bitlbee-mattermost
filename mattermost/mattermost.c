@@ -1,10 +1,13 @@
+#include <bitlbee.h>
+
 #include "mattermost.h"
+#include "mattermost-lib.h"
+#include "mattermost-bee.h"
 
 #include <url.h>
 
-#include "mattermost-lib.h"
-
 GSList *mattermost_connections = NULL;
+GSList *mattermost_channels = NULL;
 
 
 static void mattermost_init(account_t * acc)
@@ -49,6 +52,7 @@ static void mattermost_login(account_t * acc)
 				       mmd->tls ? "s" : "", mmd->host);
 	mmd->team = g_strdup(url.file + 1);
 
+	//TODO: switch to users/initial_load
 	mattermost_find_self(ic);
 	mattermost_find_team(ic);
 }
@@ -61,8 +65,9 @@ static void mattermost_logout(struct im_connection *ic)
 	ic->flags &= ~OPT_LOGGED_IN;
 
 	if (mmd) {
+		g_slist_free_full(mmd->channels,
+				  (GDestroyNotify)mattermost_close_channel);
 		g_free(mmd->self_id);
-		g_free(mmd->team_url);
 		g_free(mmd->team_id);
 		g_free(mmd->team);
 		g_free(mmd->api_url);

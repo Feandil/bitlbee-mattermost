@@ -1,6 +1,8 @@
-#include "mattermost.h"
+#include <bitlbee.h>
 
 #include "mattermost-http.h"
+#include "mattermost.h"
+#include "mattermost-obj.h"
 
 #include "json-builder.h"
 
@@ -12,7 +14,7 @@
 struct http_request *
 mattermost_http(struct im_connection *ic, struct groupchat *c, const char *url,
 		gboolean is_post, json_value * post_data, const char *etag,
-		http_input_function cb, gpointer cb_data)
+		http_input_function cb)
 {
 	struct mattermost_data *mmd = ic->proto_data;
 	struct mattermost_channel_data *chand = c ? c->data : NULL;

@@ -10,12 +10,16 @@ mattermost_la_LDFLAGS = \
 	$(GLIB_LDFLAGS)
 
 mattermost_la_SOURCES = \
-	mattermost.h \
-	mattermost.c \
+	mattermost-obj.h \
+	mattermost-obj.c \
+	mattermost-bee.h \
+	mattermost-bee.c \
 	mattermost-lib.h \
 	mattermost-lib.c \
 	mattermost-http.h \
 	mattermost-http.c \
+	mattermost.h \
+	mattermost.c \
 	json.h \
 	json.c \
 	json-builder.h \

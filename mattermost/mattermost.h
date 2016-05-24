@@ -1,7 +1,6 @@
-#ifndef _BITLBEE_MATTERMOST_
-#define _BITLBEE_MATTERMOST_
+#pragma once
 
-#include <bitlbee.h>
+#include <glib.h>
 
 struct mattermost_data {
 	gboolean tls;
@@ -11,23 +10,9 @@ struct mattermost_data {
 	char *auth_token;
 	char *team;
 	char *team_id;
-	char *team_url;
 	char *self_id;
-};
-
-struct mattermost_channel_data {
-	char *path;
-	char *id;
-};
-
-struct mattermost_user_data {
-	char *id;
-	char *nickname;
-	char *firstname;
-	char *lastname;
-	char *username;
+	GSList *channels;
 };
 
 extern GSList *mattermost_connections;
-
-#endif
+extern GSList *mattermost_channels;

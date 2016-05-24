@@ -1,92 +1,12 @@
-#include "mattermost.h"
+#include <bitlbee.h>
 
 #include "mattermost-lib.h"
 #include "mattermost-http.h"
+#include "mattermost-obj.h"
+#include "mattermost-bee.h"
+#include "mattermost.h"
 
 #include "json.h"
-
-static int
-mattermost_json_o_ck(const char * target, char ** target_store,
-		     json_object_entry * obj)
-{
-	if (strcmp(target, obj->name) != 0)
-		return 0;
-	if (!obj->value || obj->value->type != json_string)
-		return 0;
-	if (obj->value->u.string.length == 0)
-		return 0;
-	*target_store = g_memdup(obj->value->u.string.ptr,
-				 obj->value->u.string.length + 1);
-	return 1;
-}
-
-
-static void
-mattermost_free_user(struct mattermost_user_data * ud) {
-{
-	if (ud)
-		g_free(ud->username);
-		g_free(ud->lastname);
-		g_free(ud->firstname);
-		g_free(ud->nickname);
-		g_free(ud->id);
-		g_free(ud);
-	}
-}
-
-static struct mattermost_user_data *
-mattermost_parse_user(json_value * data)
-{
-	struct mattermost_user_data * ud;
-	int i;
-
-	if (!data || data->type != json_object) {
-		return NULL;
-	}
-
-	ud = g_new0(struct mattermost_user_data, 1);
-
-	for (i = 0; i < data->u.object.length; ++i) {
-		do {
-			if (mattermost_json_o_ck("username", &ud->username,
-						 &data->u.object.values[i]))
-				break;
-			if (mattermost_json_o_ck("first_name", &ud->firstname,
-						 &data->u.object.values[i]))
-				break;
-			if (mattermost_json_o_ck("last_name", &ud->lastname,
-						 &data->u.object.values[i]))
-				break;
-			if (mattermost_json_o_ck("id", &ud->id,
-						 &data->u.object.values[i]))
-				break;
-			if (mattermost_json_o_ck("nickname", &ud->nickname,
-						 &data->u.object.values[i]))
-				break;
-		} while (0);
-	}
-
-	if ((ud->username == NULL) || (ud->id == NULL)) {
-		// Invalid user
-		mattermost_free_user(ud);
-		return NULL;
-	}
-
-	return ud;
-}
-
-static void
-mattermost_user_alias(const struct mattermost_user_data * ud, char * buf)
-{
-	if (ud->nickname)
-		g_strlcpy(buf, ud->nickname, BUDDY_ALIAS_MAXLEN);
-	else if (ud->firstname != NULL && ud->lastname != NULL)
-		g_snprintf(buf, BUDDY_ALIAS_MAXLEN, "%s %s",
-			   ud->firstname, ud->lastname);
-	else
-		g_strlcpy(buf, ud->username, BUDDY_ALIAS_MAXLEN);
-}
-
 
 static void mattermost_find_self_cb(struct http_request *req);
 
@@ -94,7 +14,7 @@ void
 mattermost_find_self(struct im_connection *ic)
 {
 	mattermost_http(ic, NULL, "users/me", FALSE, NULL, NULL,
-			&mattermost_find_self_cb, ic);
+			&mattermost_find_self_cb);
 }
 
 static void
@@ -144,7 +64,7 @@ void
 mattermost_find_team(struct im_connection *ic)
 {
 	mattermost_http(ic, NULL, "teams/all_team_listings", FALSE, NULL, NULL,
-			mattermost_find_team_cb, ic);
+			mattermost_find_team_cb);
 }
 
 static void
@@ -203,43 +123,8 @@ mattermost_find_team_cb(struct http_request *req)
 		return;
 	}
 
-	mmd->team_url = g_strdup_printf("%steams/%s/", mmd->api_url, mmd->team_id);
 	if (mmd->self_id != NULL)
 		mattermost_find_users(ic);
-}
-
-static bee_user_t *
-user_by_id(struct im_connection *ic, const char *handle)
-{
-	GSList *l;
-	bee_t *bee = ic->bee;
-
-	for (l = bee->users; l; l = l->next) {
-		bee_user_t *bu = l->data;
-
-		if (bu->ic == ic && ic->acc->prpl->handle_cmp(bu->handle, handle) == 0)
-			return bu;
-	}
-
-	return NULL;
-}
-
-static void
-mattermost_add_user(const struct mattermost_user_data * ud,
-		    struct im_connection *ic)
-{
-	char user_alias[BUDDY_ALIAS_MAXLEN];
-	struct mattermost_data *mmd = ic->proto_data;
-
-	if (ic->acc->prpl->handle_cmp(ud->id, mmd->self_id) == 0)
-		return;
-
-	if (!bee_user_by_handle(ic->bee, ic, ud->id)) {
-		mattermost_user_alias(ud, user_alias);
-		imcb_add_buddy(ic, ud->id, NULL);
-		imcb_rename_buddy(ic, ud->id, user_alias);
-		imcb_buddy_nick_hint(ic, ud->id, ud->username);
-	}
 }
 
 static void mattermost_find_users_cb(struct http_request *req);
@@ -257,7 +142,7 @@ mattermost_find_users(struct im_connection *ic)
 
 	url = g_strdup_printf("users/profiles/%s", mmd->team_id);
 	mattermost_http(ic, NULL, url, FALSE, NULL, NULL,
-			&mattermost_find_users_cb, ic);
+			&mattermost_find_users_cb);
 	g_free(url);
 }
 
@@ -314,7 +199,7 @@ mattermost_join_channels(struct im_connection *ic)
 
 	url = g_strdup_printf("teams/%s/channels/", mmd->team_id);
 	mattermost_http(ic, NULL, url, FALSE, NULL, NULL,
-			&mattermost_join_channels_cb, ic);
+			&mattermost_join_channels_cb);
 	g_free(url);
 }
 
@@ -357,56 +242,100 @@ mattermost_join_channels_cb(struct http_request *req)
 		return;
 	}
 	for (i = 0; i < channels->u.array.length; ++i) {
-		int ci;
-		json_value *channel = channels->u.array.values[i];
-		char *id, *type, *name, *topic;
-		id = type = name = topic = NULL;
+		struct mattermost_channel_data * cd;
 
-		if (channel->type != json_object) {
-			imcb_error(ic, "wrong type");
+		cd = mattermost_parse_channel(channels->u.array.values[i]);
+		if (cd != NULL) {
+			struct groupchat * chat;
+
+			chat = mattermost_create_channel(cd, ic);
+			if (chat == NULL)
+				mattermost_free_channel(cd);
+			else
+				mattermost_join_channel(chat);
+		}
+	}
+}
+
+static void mattermost_join_channel_cb(struct http_request *req);
+
+void
+mattermost_join_channel(struct groupchat *gic)
+{
+	imcb_chat_log(gic, "Joining....");
+	mattermost_http(gic->ic, gic, "extra_info/-1", FALSE, NULL, NULL,
+			mattermost_join_channel_cb);
+}
+
+static void
+mattermost_join_channel_cb(struct http_request *req)
+{
+	struct groupchat *gic = req->data;
+	struct im_connection *ic;
+	struct mattermost_data *mmd;
+	json_value *data, *members = NULL;
+	int i, ret;
+
+	/* Check if we didn't logout in the mean time */
+	if (!g_slist_find(mattermost_channels, gic))
+		return;
+	ic = gic->ic;
+	mmd = ic->proto_data;
+
+	ret = mattermost_parse_response(ic, req, &data);
+	/* No etag set: no 304 */
+	if (ret != 200) {
+		imcb_error(ic, "Early failure: could not get detail: %d", ret);
+		imc_logout(ic, FALSE);
+		return;
+	}
+
+	if (!data || data->type != json_object) {
+		json_value_free(data);
+		imcb_error(ic, "Early failure: invalid channels json");
+		imc_logout(ic, FALSE);
+		return;
+	}
+	for (i = 0; i < data->u.object.length; ++i) {
+		if (strcmp(data->u.object.values[i].name, "members") == 0) {
+			members = data->u.object.values[i].value;
+			break;
+		}
+	}
+	if (members == NULL ||members->type != json_array) {
+		imcb_error(ic, "Early failure: missing members");
+		imc_logout(ic, FALSE);
+		return;
+	}
+	for (i = 0; i < members->u.array.length; ++i) {
+		int ci;
+		char *uid = NULL;
+		json_value *obj = members->u.array.values[i];
+
+		if (!obj || obj->type != json_object) {
+			imcb_error(ic, "Bad object");
 			continue;
 		}
-
-		for (ci = 0; ci < channel->u.object.length; ++ci) {
-			do {
-				if (mattermost_json_o_ck("id", &id,
-				    &channel->u.object.values[ci]))
-					break;
-				if (mattermost_json_o_ck("type", &type,
-				    &channel->u.object.values[ci]))
-					break;
-				if (mattermost_json_o_ck("name", &name,
-				    &channel->u.object.values[ci]))
-					break;
-				if (mattermost_json_o_ck("header", &topic,
-				    &channel->u.object.values[ci]))
-					break;
-			} while (0);
-		}
-		if (id != NULL && type != NULL && name != NULL) {
-			struct groupchat *chat;
-			switch (*type) {
-			case 'D':
-				//TODO: set buddy online
-				break;
-			case 'P':
-			case 'O':
-				imcb_log(ic, "Joining %s", name);
-				chat = imcb_chat_new(ic, id);
-				imcb_chat_name_hint(chat, name);
-				if (topic)
-					imcb_chat_topic(chat, NULL, topic, 0);
-				mattermost_join_channel(chat);
-				break;
-			default:
-				imcb_error(ic, "Unsupported channel: %s",
-					   name);
+		for (ci = 0; ci < obj->u.object.length; ++ci) {
+			json_object_entry *d = &obj->u.object.values[ci];
+			if (strcmp(d->name, "id") == 0 &&
+			    d->value->type == json_string) {
+				uid = d->value->u.string.ptr;
 				break;
 			}
 		}
-		g_free(id);
-		g_free(type);
-		g_free(name);
-		g_free(topic);
+
+		if (uid != NULL)
+			imcb_chat_add_buddy(gic, uid);
+		else
+			imcb_error(ic, "Missed one user");
 	}
+	mattermost_sync_channel(gic);
+}
+
+void
+mattermost_sync_channel(struct groupchat *gic)
+{
+	imcb_chat_log(gic, "Syncing messages...");
+
 }
