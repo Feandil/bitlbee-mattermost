@@ -255,6 +255,7 @@ mattermost_join_channels_cb(struct http_request *req)
 				mattermost_join_channel(chat);
 		}
 	}
+	imcb_connected(ic);
 }
 
 static void mattermost_join_channel_cb(struct http_request *req);
